@@ -34,11 +34,12 @@ class Settings(BaseSettings):
     # Whisper lo usa como "texto previo" para orientar el reconocimiento; no se transcribe.
     # Dejar vacío en .env para desactivar.
     WHISPER_INITIAL_PROMPT: str = (
-        "Llamada de ventas y atención al cliente en Honduras entre asesor y comprador. "
-        "Modismos y comercio local: ocupar, lo ocupo, ocupamos, fíjese que, mire que, venir a dejar a la casa, "
-        "venirlo a dejar, ir a dejar, servicio a domicilio, delivery, cuánto se tardan, ahorita, ahoritita, "
-        "ya merito, cómo es el asunto, perchero, perchero de ropa, cotización, precio, descuento, lempiras, "
-        "pago contra entrega, transferencia bancaria, Banco Atlántida, BAC, Ficohsa, Banpaís, Banco de Occidente, "
+        "Buenos días, fíjese que estoy interesada en el perchero y quería saber cuánto se tardan en venirlo a dejar a la casa. "
+        "No es que lo ocupo ahorita o en una hora, ocupo saber si se tardan días o cómo es el asunto. "
+        "Llamada de ventas y atención al cliente en Honduras. Modismos y comercio local: ocupar, lo ocupo, ocupamos, "
+        "fíjese que, mire que, venir a dejar a la casa, venirlo a dejar, servicio a domicilio, delivery, cuánto se tardan, "
+        "ahorita, ahoritita, ya merito, cómo es el asunto, perchero, perchero de ropa, cotización, precio, descuento, "
+        "lempiras, pago contra entrega, transferencia bancaria, Banco Atlántida, BAC, Ficohsa, Banpaís, Banco de Occidente, "
         "Tigo Money, encomienda, guía de rastreo, Tegucigalpa, San Pedro Sula, La Ceiba, Choloma, El Progreso."
     )
 

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import math
 import os
+import re
 import time
 from typing import List, Optional, Tuple
 
@@ -26,6 +27,52 @@ from app.services.diarization_service import DiarizationService
 
 
 logger = logging.getLogger("transcription_engine.whisper_service")
+
+
+def normalize_regional_phonetics(text: str) -> str:
+    """
+    Normaliza alucinaciones fonéticas comunes del habla rápida centroamericana/hondureña
+    y artefactos de audio comprimido sin alterar el significado comercial original.
+    """
+    if not text:
+        return text
+
+    patterns = [
+        # 1. Cortes de inicio de audio / VAD
+        (r"(?i)\bNos días\b", "Buenos días"),
+        (r"(?i)\b'nos días\b", "Buenos días"),
+        (r"(?i)\bNas tardes\b", "Buenas tardes"),
+        (r"(?i)\bNas noches\b", "Buenas noches"),
+
+        # 2. Elisión de 'fíjese que' (en Honduras suena 'fí-e-se que' / 'físque' -> 'fice que' / 'fise que')
+        (r"(?i)\bfice que\b", "fíjese que"),
+        (r"(?i)\bfise que\b", "fíjese que"),
+        (r"(?i)\bfíese que\b", "fíjese que"),
+        (r"(?i)\bfiese que\b", "fíjese que"),
+        (r"(?i)\bfisque\b", "fíjese que"),
+
+        # 3. Alucinaciones de 'lo ocupo ahorita / ahoritita' ('loco poritita' -> 'lo ocupo ahoritita')
+        (r"(?i)\bloco[\s,]+poritita\b", "lo ocupo ahoritita"),
+        (r"(?i)\bloco[\s,]+oritita\b", "lo ocupo ahoritita"),
+        (r"(?i)\bloco[\s,]+ahorita\b", "lo ocupo ahorita"),
+        (r"(?i)\blo ocupo[\s,]+poritita\b", "lo ocupo ahoritita"),
+        (r"(?i)\boritita\b", "ahoritita"),
+
+        # 4. Confusiones vocálicas en catálogo de productos comerciales
+        (r"(?i)\bporchero\b", "perchero"),
+        (r"(?i)\bporcheros\b", "percheros"),
+
+        # 5. Formas de entrega a domicilio ('venirlo a dejar')
+        (r"(?i)\bvendirlos a dejar\b", "venirlo a dejar"),
+        (r"(?i)\bvendirme a dejar\b", "venirme a dejar"),
+        (r"(?i)\bvendir a dejar\b", "venir a dejar"),
+    ]
+
+    cleaned = text
+    for pattern, replacement in patterns:
+        cleaned = re.sub(pattern, replacement, cleaned)
+
+    return cleaned
 
 
 class WhisperService:
@@ -157,7 +204,10 @@ class WhisperService:
             raise RuntimeError("Whisper model is not initialized.")
 
         target_lang = language if (language and language.lower() != "auto") else None
-        vad_params = dict(min_silence_duration_ms=self.settings.WHISPER_VAD_MIN_SILENCE_DURATION_MS)
+        vad_params = dict(
+            min_silence_duration_ms=self.settings.WHISPER_VAD_MIN_SILENCE_DURATION_MS,
+            speech_pad_ms=400,
+        )
         # Contexto acústico de ventas para sesgar el vocabulario (None si está vacío)
         initial_prompt = (self.settings.WHISPER_INITIAL_PROMPT or "").strip() or None
 
@@ -198,7 +248,8 @@ class WhisperService:
                 except OverflowError:
                     conf = 1.0
 
-            clean_text = segment.text.strip()
+            normalized_text = normalize_regional_phonetics(segment.text)
+            clean_text = normalized_text.strip()
             if clean_text:
                 text_parts.append(clean_text)
 
@@ -208,12 +259,13 @@ class WhisperService:
                     speaker=getattr(segment, "speaker", None),
                     start=round(segment.start, 2),
                     end=round(segment.end, 2),
-                    text=segment.text,
+                    text=normalized_text,
                     confidence=conf,
                 )
             )
 
         full_text = " ".join(text_parts).strip()
+        full_text = normalize_regional_phonetics(full_text)
         duration_seconds = round(info.duration, 2) if info.duration else 0.0
         detected_language = info.language
 

@@ -63,6 +63,7 @@ async def transcribe_async(
     task_id: Optional[str] = Form(None, description="UUID único de la tarea generado por Spring Boot.", examples=["c1f8a8b2-4d2a-4b91-9e8c-3a1b2c3d4e5f"]),
     callback_url: Optional[str] = Form(None, description="URL del backend donde notificar el resultado vía POST.", examples=["http://localhost:8080/api/v1/internal/transcriptions/callback"]),
     language: Optional[str] = Form("es", description="Idioma del audio ('es', 'en') o 'auto' para autodetección."),
+    vad_filter: bool = Form(True, description="Filtro de voz. True para descartar silencios largos. False para audios con voz baja o pausas largas."),
     _auth: str = Security(verify_api_key),
     whisper_service: WhisperService = Depends(get_whisper_service),
 ):
@@ -81,6 +82,7 @@ async def transcribe_async(
             file_path = body.get("file_path")
             callback_url = body.get("callback_url")
             language = body.get("language", "es")
+            vad_filter = body.get("vad_filter", True)
         except Exception as parse_err:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -116,7 +118,7 @@ async def transcribe_async(
 
     logger.info(
         f"Queuing async transcription task: task_id='{task_id}', "
-        f"audio='{target_audio_path}', callback='{callback_url}', lang='{language}'"
+        f"audio='{target_audio_path}', callback='{callback_url}', lang='{language}', vad_filter={vad_filter}"
     )
 
     # Dispatch to background task execution
@@ -127,6 +129,7 @@ async def transcribe_async(
         is_temp_file=is_temp,
         callback_url=callback_url,
         language=language,
+        vad_filter=vad_filter,
     )
 
     return AsyncTranscriptionInitResponse(
@@ -148,6 +151,7 @@ async def transcribe_sync(
     file_path: Optional[str] = Form(None, description="Ruta local en el servidor (dejar vacío si se sube archivo)."),
     task_id: Optional[str] = Form(None, description="UUID de la tarea.", examples=["e4d8a1c9-772b-45fc-9a6d-23910b8cf812"]),
     language: Optional[str] = Form("es", description="Idioma ('es', 'en') o 'auto'."),
+    vad_filter: bool = Form(True, description="Filtro de voz. True para descartar silencios largos. False para audios con voz baja o pausas largas."),
     _auth: str = Security(verify_api_key),
     whisper_service: WhisperService = Depends(get_whisper_service),
 ):
@@ -164,6 +168,7 @@ async def transcribe_sync(
             task_id = body.get("task_id")
             file_path = body.get("file_path")
             language = body.get("language", "es")
+            vad_filter = body.get("vad_filter", True)
         except Exception as parse_err:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -201,6 +206,7 @@ async def transcribe_sync(
             task_id=task_id,
             audio_path=target_audio_path,
             language=language,
+            vad_filter=vad_filter,
         )
         return response
     finally:

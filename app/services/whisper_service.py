@@ -193,7 +193,7 @@ class WhisperService:
             return ConcurrencyStatus(max=max_tasks, active=active, available=available)
 
     def _sync_transcribe(
-        self, audio_path: str, language: Optional[str]
+        self, audio_path: str, language: Optional[str], vad_filter: bool = True
     ) -> Tuple[str, List[TranscriptSegment], float, Optional[str]]:
         """
         Synchronous worker method executing faster-whisper CTranslate2 pipeline.
@@ -205,14 +205,15 @@ class WhisperService:
 
         target_lang = language if (language and language.lower() != "auto") else None
         vad_params = dict(
+            threshold=getattr(self.settings, "WHISPER_VAD_THRESHOLD", 0.25),
             min_silence_duration_ms=self.settings.WHISPER_VAD_MIN_SILENCE_DURATION_MS,
-            speech_pad_ms=400,
+            speech_pad_ms=500,
         )
         # Contexto acústico de ventas para sesgar el vocabulario (None si está vacío)
         initial_prompt = (self.settings.WHISPER_INITIAL_PROMPT or "").strip() or None
 
-        # Execute via Batched pipeline if available, otherwise standard transcribe
-        if self._batched_pipeline is not None:
+        # Execute via Batched pipeline if available and vad_filter is True, otherwise standard transcribe
+        if vad_filter and self._batched_pipeline is not None:
             logger.debug(f"Transcribing via BatchedInferencePipeline (batch_size={self.settings.WHISPER_BATCH_SIZE})...")
             segments_generator, info = self._batched_pipeline.transcribe(
                 audio_path,
@@ -224,14 +225,14 @@ class WhisperService:
                 initial_prompt=initial_prompt,
             )
         else:
-            logger.debug(f"Transcribing via standard WhisperModel (beam_size={self.settings.WHISPER_BEAM_SIZE})...")
+            logger.debug(f"Transcribing via standard WhisperModel (beam_size={self.settings.WHISPER_BEAM_SIZE}, vad_filter={vad_filter})...")
             segments_generator, info = self._model.transcribe(
                 audio_path,
                 language=target_lang,
                 beam_size=self.settings.WHISPER_BEAM_SIZE,
                 condition_on_previous_text=self.settings.WHISPER_CONDITION_ON_PREVIOUS_TEXT,
-                vad_filter=True,
-                vad_parameters=vad_params,
+                vad_filter=vad_filter,
+                vad_parameters=vad_params if vad_filter else None,
                 initial_prompt=initial_prompt,
             )
 
@@ -283,6 +284,7 @@ class WhisperService:
         task_id: str,
         audio_path: str,
         language: Optional[str] = "es",
+        vad_filter: bool = True,
     ) -> TranscriptionResponse:
         """
         Acquires semaphore and executes transcription in worker thread,
@@ -294,12 +296,12 @@ class WhisperService:
             async with self._lock:
                 self._active_tasks += 1
 
-            logger.info(f"[Task {task_id}] Acquired slot. Running transcription on '{audio_path}' (Active: {self._active_tasks})...")
+            logger.info(f"[Task {task_id}] Acquired slot. Running transcription on '{audio_path}' (Active: {self._active_tasks}, vad_filter: {vad_filter})...")
             start_time = time.time()
 
             try:
                 full_text, segments, duration, detected_lang = await asyncio.to_thread(
-                    self._sync_transcribe, audio_path, language
+                    self._sync_transcribe, audio_path, language, vad_filter
                 )
                 elapsed = time.time() - start_time
                 logger.info(f"[Task {task_id}] Transcription completed successfully in {elapsed:.2f}s (Audio duration: {duration}s).")
@@ -339,6 +341,7 @@ class WhisperService:
         is_temp_file: bool,
         callback_url: Optional[str] = None,
         language: Optional[str] = "es",
+        vad_filter: bool = True,
     ) -> None:
         """
         Background task orchestrator: executes transcription, sends webhook if callback_url
@@ -349,6 +352,7 @@ class WhisperService:
                 task_id=task_id,
                 audio_path=audio_path,
                 language=language,
+                vad_filter=vad_filter,
             )
 
             if callback_url:

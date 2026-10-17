@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     WHISPER_USE_BATCHED: bool = True
     WHISPER_BATCH_SIZE: int = 8
     WHISPER_CONDITION_ON_PREVIOUS_TEXT: bool = False
-    WHISPER_VAD_MIN_SILENCE_DURATION_MS: int = 500
+    WHISPER_VAD_MIN_SILENCE_DURATION_MS: int = 2000
+    WHISPER_VAD_THRESHOLD: float = 0.25
 
     # Contexto acústico para Ventas Online y E-commerce (sesga el vocabulario hacia términos comerciales).
     # Whisper lo usa como "texto previo" para orientar el reconocimiento; no se transcribe.

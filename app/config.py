@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,10 +34,12 @@ class Settings(BaseSettings):
     # Whisper lo usa como "texto previo" para orientar el reconocimiento; no se transcribe.
     # Dejar vacío en .env para desactivar.
     WHISPER_INITIAL_PROMPT: str = (
-        "Llamada o conversación de ventas online y atención al cliente en español entre asesor y comprador. "
-        "Cotización, catálogo de productos, precio, descuento, promoción, carrito de compras, pasarela de pago, "
-        "tarjeta de crédito, débito, transferencia bancaria, Mercado Pago, PayPal, Stripe, envío a domicilio, "
-        "paquetería, guía de rastreo, entrega, factura fiscal, garantía, devolución, cierre de venta, objeciones."
+        "Llamada de ventas y atención al cliente en Honduras entre asesor y comprador. "
+        "Modismos y comercio local: ocupar, lo ocupo, ocupamos, fíjese que, mire que, venir a dejar a la casa, "
+        "venirlo a dejar, ir a dejar, servicio a domicilio, delivery, cuánto se tardan, ahorita, ahoritita, "
+        "ya merito, cómo es el asunto, perchero, perchero de ropa, cotización, precio, descuento, lempiras, "
+        "pago contra entrega, transferencia bancaria, Banco Atlántida, BAC, Ficohsa, Banpaís, Banco de Occidente, "
+        "Tigo Money, encomienda, guía de rastreo, Tegucigalpa, San Pedro Sula, La Ceiba, Choloma, El Progreso."
     )
 
     # Concurrency Management
